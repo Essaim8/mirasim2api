@@ -61,6 +61,38 @@ docker compose up -d --build
 
 数据持久化在名为 `mirasim-data` 的 volume（`/app/data`）。
 
+### 方式三：macOS 菜单栏 App（轻量后台模式）
+
+常驻菜单栏运行网关：无 Dock 图标、无终端窗口，菜单一键打开管理后台、复制接口地址、
+开关「开机自动启动」（macOS LaunchAgent，登录即自动拉起）。
+
+```bash
+./deploy/macos/build_app.sh        # 产出 build/macos/Mirasim2API.app
+open build/macos/Mirasim2API.app   # 立即运行；或拖入 /Applications 长期使用
+```
+
+- 菜单项：运行状态（启动中 / 运行中·地址 / 启动失败原因）、打开管理后台、复制接口地址、
+  打开数据目录、**开机自动启动**（勾选后下次登录生效，再勾取消）、退出
+- 桌面默认与终端不同：`HOST=127.0.0.1`、`DATA_DIR=~/Library/Application Support/mirasim2api`
+  （终端模式仍是 `./data`）；环境变量优先，如 `PORT=9999` 可换端口
+- 日志在 `DATA_DIR/logs/app.log`；启动失败（如端口被占）不会弹窗，状态栏显示原因
+- 技术栈：`getlantern/systray`（CGO），`LSUIElement` 菜单栏 agent，图标由
+  `deploy/macos/genicon` 纯 Go 生成
+
+### 方式四：Windows 托盘 App（x64）
+
+与 macOS 版同一套代码：右下角系统托盘常驻、无控制台窗，菜单功能完全一致
+（状态 / 打开管理后台 / 复制接口地址 / 打开数据目录 / **开机自动启动** / 退出）。
+
+```bash
+./deploy/windows/build_exe.sh      # 任意平台上交叉编译，产出 build/windows/Mirasim2API.exe（+zip）
+```
+
+- 适用机型：**x86-64（amd64）CPU 即可**（如 Intel / AMD 锐龙全系），纯静态单 exe，无依赖
+- 「开机自动启动」写 `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`，登录即起，免管理员权限
+- 数据目录默认 `%LOCALAPPDATA%\mirasim2api`；exe 已嵌入图标与 PerMonitorV2 DPI 清单，高分辨率下不糊
+- 未签名，首次运行 SmartScreen 可能提示「未知的发布者」，点「仍要运行」即可
+
 ### 添加账号
 
 管理后台 →「账号池」→ 右上角三种方式任选：
@@ -117,7 +149,10 @@ curl http://127.0.0.1:8787/v1/messages \
 ## 项目结构
 
 ```
-cmd/server/          入口：配置加载、DB 初始化、HTTP 服务装配
+cmd/server/          CLI 入口
+cmd/desktop/         桌面托盘 app（systray：macOS 菜单栏 agent / Windows 系统托盘）
+internal/server/     服务装配与运行（CLI 与桌面 app 共用）
+internal/autostart/  开机自启（macOS LaunchAgent，其他平台回退不支持）
 internal/config/     环境变量配置
 internal/mirasim/    协议层：设备身份、mrs-sig-v2 签名、mrs-seal-v1 密封、token 刷新、ticket 申领
 internal/store/      SQLite：accounts / api_keys / usage_logs / settings / device
@@ -127,7 +162,8 @@ internal/billing/    用量记录与费用计算
 internal/admin/      管理 API（会话认证）
 internal/runtimecfg/ 运行时设置（数据库优先，环境变量兜底）
 web/                 管理后台静态资源（embed）
-deploy/              Dockerfile、docker-compose.yml、.env.example
+deploy/              Dockerfile、docker-compose.yml、.env.example、
+                     macos/（.app 构建脚本 + 图标生成器）、windows/（.exe 交叉编译脚本）
 docs/                DESIGN.md（设计）、PROTOCOL.md（协议规格）
 ```
 

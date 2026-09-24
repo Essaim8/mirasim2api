@@ -19,3 +19,6 @@ Thumbs.db
 # 测试与临时
 *.out
 /tmp/
+
+# 桌面 app 构建产物
+build/
